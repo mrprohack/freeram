@@ -1,4 +1,6 @@
-##Clear Cached Memory Script
+# Clear Cached Memory Script
+
+
 This Bash script clears the cached memory on (Ubuntu/Debian) Linux systems, freeing up RAM by clearing the file system buffers and caches.
 
 Usage
