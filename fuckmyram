@@ -1,6 +1,6 @@
 #!/bin/bash
 ## Bash Script to clear cached memory on (Ubuntu/Debian) Linux
-## By mrprohack
+## By mrprohack and tamilanmkv
 ## see <http://blog.philippklaus.de/2011/02/clear-cached-memory-on-ubuntu/>
 
 # Define color codes
@@ -9,13 +9,11 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-
 # Check if bc is installed
 if ! command -v bc &> /dev/null; then
     echo -e "${RED}bc tool is not installed. Please install it before running this script.${NC}"
     exit 1
 fi
-
 
 # Get Memory Information
 free_mem_before=$(awk '/^MemFree:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
