@@ -11,15 +11,15 @@ sudo ./clear-cached-memory.sh
 ```
 The script will output information about your current memory usage and the amount of memory that will be freed up by clearing the caches.
 
-Dependencies
+## Dependencies
 This script requires the `bc` tool to be installed. If you don't have it already, you can install it using the following command:
 
 ```sh
 sudo apt install bc
 ```
 
-Authors
+## Authors
 This script was created by mrprohack and tamilanmkv.
 
-License
+## License
 This script is released under the MIT License. Feel free to use, modify, and distribute it as you like.
