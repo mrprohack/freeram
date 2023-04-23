@@ -7,7 +7,7 @@ This Bash script clears the cached memory on (Ubuntu/Debian) Linux systems, free
 To use the script, simply run it with root privileges:
 
 ```sh
-sudo ./clear-cached-memory.sh
+sudo ./fuckmyram
 ```
 The script will output information about your current memory usage and the amount of memory that will be freed up by clearing the caches.
 
