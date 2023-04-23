@@ -11,6 +11,7 @@ NC='\033[0m' # No Color
 # Check if bc is installed
 if ! command -v bc &> /dev/null; then
     echo -e "${RED}bc tool is not installed. Please install it before running this script.${NC}"
+    echo -e "${RED}run a commend on sudo apt install bc ${NC}"
     exit 1
 fi
 
