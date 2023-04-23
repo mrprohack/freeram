@@ -19,7 +19,7 @@ sudo apt install bc
 ```
 
 ## Authors
-This script was created by mrprohack and tamilanmkv.
+This script was created by [mrprohack](https://github.com/mrprohack) and [tamilanmkv](https://github.com/tamilanmkv).
 
 ## License
 This script is released under the MIT License. Feel free to use, modify, and distribute it as you like.
