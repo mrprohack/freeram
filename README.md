@@ -3,20 +3,21 @@
 
 This Bash script clears the cached memory on (Ubuntu/Debian) Linux systems, freeing up RAM by clearing the file system buffers and caches.
 
-Usage
+## Usage
 To use the script, simply run it with root privileges:
 
-bash
-Copy code
+```sh
 sudo ./clear-cached-memory.sh
+```
 The script will output information about your current memory usage and the amount of memory that will be freed up by clearing the caches.
 
 Dependencies
-This script requires the bc tool to be installed. If you don't have it already, you can install it using the following command:
+This script requires the `bc` tool to be installed. If you don't have it already, you can install it using the following command:
 
-bash
-Copy code
+```sh
 sudo apt install bc
+```
+
 Authors
 This script was created by mrprohack and tamilanmkv.
 
