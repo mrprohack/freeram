@@ -1,6 +1,10 @@
-#!/bin/bash
-## Bash Script to clear cached memory on (Ubuntu/Debian) Linux
-## By mrprohack and tamilanmkv 
+#!/usr/bin/env bash
+
+##
+# Bash script to clear cached memory on (Ubuntu/Debian) Linux
+# This script frees up RAM by clearing the file system buffers and caches.
+# By mrprohack and tamilanmkv
+##
 
 # Define color codes
 GREEN='\033[0;32m'
@@ -11,7 +15,8 @@ NC='\033[0m' # No Color
 # Check if bc is installed
 if ! command -v bc &> /dev/null; then
     echo -e "${RED}bc tool is not installed. Please install it before running this script.${NC}"
-    echo -e "${RED}run a commend on sudo apt install bc ${NC}"
+    echo -e "${YELLOW}You can install it by running the following command:${NC}"
+    echo -e "${GREEN}sudo apt install bc${NC}"
     exit 1
 fi
 
@@ -24,13 +29,13 @@ echo -e "${YELLOW}This script will clear cached memory and free up your RAM.${NC
 
 # Test sync
 if ! sync; then
-  echo -e "${RED}Something went wrong, It's impossible to sync the filesystem.${NC}"
+  echo -e "${RED}Failed to sync the filesystem.${NC}"
   exit 1
 fi
 
 # Clear Filesystem Buffer using "sync" and Clear Caches
 if ! echo 3 > /proc/sys/vm/drop_caches; then
-  echo -e "${RED}Something went wrong, It's impossible to clear the caches.${NC}"
+  echo -e "${RED}Failed to clear the caches.${NC}"
   exit 1
 fi
 
