@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##
-# Bash script to clear cached memory on (Ubuntu/Debian) Linux
+# Bash script to clear cached memory on (Ubuntu/Debian) Linux.
 # This script frees up RAM by clearing the file system buffers and caches.
 # By mrprohack and tamilanmkv
 ##
