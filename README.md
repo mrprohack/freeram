@@ -18,7 +18,7 @@ This script requires the `bc` tool to be installed. If you don't have it already
 sudo apt install bc
 ```
 ```sh 
-wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeam && chmod +x /usr/bin/freeam 
+wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && chmod +x /usr/bin/freeram 
 ```
 ## Authors
 This script was created by [mrprohack](https://github.com/mrprohack) and [tamilanmkv](https://github.com/tamilanmkv).
