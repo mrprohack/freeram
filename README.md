@@ -17,7 +17,9 @@ This script requires the `bc` tool to be installed. If you don't have it already
 ```sh
 sudo apt install bc
 ```
-
+```sh 
+wget https://github.com/mrprohack/freeram -O /usr/bin/fram && chmod +x /usr/bin/fram 
+```
 ## Authors
 This script was created by [mrprohack](https://github.com/mrprohack) and [tamilanmkv](https://github.com/tamilanmkv).
 
