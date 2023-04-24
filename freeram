@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+##
+# Bash script to clear cached memory on (Ubuntu/Debian) Linux
+# This script frees up RAM by clearing the file system buffers and caches.
+# By mrprohack and tamilanmkv
+##
+
+# Check if script is run as root
+if [[ $EUID -ne 0 ]]; then
+    printf "This script must be run as root\n" >&2
+    exit 1
+fi
+
+# Define color codes
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# Check if bc is installed
+if ! command -v bc &> /dev/null; then
+    printf "${RED}bc tool is not installed. Please install it before running this script.${NC}\n"
+    printf "${YELLOW}You can install it by running the following command:${NC}\n"
+    printf "${GREEN}sudo apt install bc${NC}\n"
+    exit 1
+fi
+
+# Get memory information
+free_memory_before=$(awk '/^MemFree:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
+cached_memory_before=$(awk '/^Cached:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
+
+# Output information
+printf "${YELLOW}This script will clear cached memory and free up your RAM.\n\nAt the moment you have ${GREEN}%0.2f MiB${NC} cached and ${GREEN}%0.2f MiB${NC} free memory.\n" \
+    "$cached_memory_before" "$free_memory_before"
+
+# Test sync
+if ! sync; then
+    printf "${RED}Failed to sync the filesystem.${NC}\n"
+    exit 1
+fi
+
+# Clear filesystem buffer using "sync" and clear caches
+if ! echo 3 > /proc/sys/vm/drop_caches; then
+    printf "${RED}Failed to clear the caches.${NC}\n"
+    exit 1
+fi
+
+free_memory_after=$(awk '/^MemFree:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
+
+# Calculate the amount of memory freed
+memory_freed=$(echo "scale=2; $free_memory_after - $free_memory_before" | bc)
+
+# Output summary
+printf "This freed ${GREEN}%0.2f MiB${NC}, so now you have ${GREEN}%0.2f MiB${NC} of free RAM.\n" \
+    "$memory_freed" "$free_memory_after"
