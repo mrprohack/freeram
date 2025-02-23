@@ -30,9 +30,25 @@ fi
 free_memory_before=$(awk '/^MemFree:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
 cached_memory_before=$(awk '/^Cached:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
 
+# Log file path
+LOG_FILE="/var/log/freeram.log"
+
+# Function to log messages
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
 # Output information
 printf "${YELLOW}This script will clear cached memory and free up your RAM.\n\nAt the moment you have ${GREEN}%0.2f MiB${NC} cached and ${GREEN}%0.2f MiB${NC} free memory.\n" \
     "$cached_memory_before" "$free_memory_before"
+
+# Confirmation prompt before clearing cache
+read -p "Are you sure you want to clear the cached memory? (y/n): " -n 1 -r
+echo    # move to a new line
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    printf "${YELLOW}Operation cancelled.${NC}\n"
+    exit 0
+fi
 
 # Test sync
 if ! sync; then
@@ -42,7 +58,7 @@ fi
 
 # Clear filesystem buffer using "sync" and clear caches
 if ! echo 3 > /proc/sys/vm/drop_caches; then
-    printf "${RED}Failed to clear the caches.${NC}\n"
+    printf "${RED}Failed to clear the caches. Please check your permissions or system settings.${NC}\n"
     exit 1
 fi
 
@@ -50,6 +66,9 @@ free_memory_after=$(awk '/^MemFree:/ {print $2}' /proc/meminfo | awk '{print $1/
 
 # Calculate the amount of memory freed
 memory_freed=$(echo "scale=2; $free_memory_after - $free_memory_before" | bc)
+
+# Log the memory freed
+log_message "Cleared cached memory: Freed ${memory_freed} MiB."
 
 # Output summary
 printf "This freed ${GREEN}%0.2f MiB${NC}, so now you have ${GREEN}%0.2f MiB${NC} of free RAM.\n" \
