@@ -28,14 +28,14 @@ You can also download the script directly to your system with:
 ```sh
 wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && chmod +x /usr/bin/freeram 
 ```
-
+```sh
+sudo wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && sudo chmod +x /usr/bin/freeram 
+```
 ## Log File
 The script logs its operations to `/var/log/freeram.log`. You can check this file to see when the script was run and how much memory was freed.
 
 ## Authors
 This script was created by [mrprohack](https://github.com/mrprohack) and [tamilanmkv](https://github.com/tamilanmkv).
-
-## testing
 
 ## License
 This script is released under the MIT License. Feel free to use, modify, and distribute it as you like.
