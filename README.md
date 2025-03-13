@@ -28,7 +28,7 @@ You can also download the script directly to your system with:
 ```sh
 wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && chmod +x /usr/bin/freeram 
 ```
-```sh
+```bash
 sudo wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && sudo chmod +x /usr/bin/freeram 
 ```
 ## Log File
