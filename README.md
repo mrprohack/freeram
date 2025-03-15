@@ -1,41 +1,41 @@
-# Clear Cached Memory Script
+# Enhanced Clear Cached Memory Script
 
-This Bash script clears the cached memory on (Ubuntu/Debian) Linux systems, freeing up RAM by clearing the file system buffers and caches.
+This Bash script efficiently clears the cached memory on (Ubuntu/Debian) Linux systems, freeing up RAM by clearing the file system buffers and caches, and includes additional features for improved usability and logging.
 
-## Features
-- Clears cached memory to free up RAM.
-- Logs the amount of memory freed to `/var/log/freeram.log`.
-- Confirmation prompt before executing the cache clearing operation.
+## Key Features
+- Clears cached memory to free up RAM, enhancing system performance.
+- Logs the amount of memory freed to `/var/log/freeram.log` for auditing and monitoring purposes.
+- Presents a confirmation prompt before executing the cache clearing operation to prevent accidental runs.
+- Automatically checks for and installs the required `bc` tool if it's not already installed.
+- Optionally downloads and installs the script directly to the system with appropriate permissions.
 
 ## Usage
-To use the script, simply run it with root privileges:
+To utilize the script, run it with root privileges:
 
 ```sh
 sudo ./freeram
 ```
 
-The script will output information about your current memory usage and the amount of memory that will be freed up by clearing the caches. You will be prompted to confirm the operation before proceeding.
+The script will display detailed information about your current memory usage and the amount of memory that will be freed up by clearing the caches. A confirmation prompt will appear before proceeding with the operation.
 
 ## Dependencies
-This script requires the `bc` tool to be installed. If you don't have it already, you can install it using the following command:
+The script requires the `bc` tool. If not installed, it can be added using:
 
 ```sh
 sudo apt install bc
 ```
 
-You can also download the script directly to your system with:
+For direct download and installation of the script, use:
 
 ```sh
-wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && chmod +x /usr/bin/freeram 
+sudo wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && sudo chmod +x /usr/bin/freeram
 ```
-```bash
-sudo wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && sudo chmod +x /usr/bin/freeram 
-```
-## Log File
-The script logs its operations to `/var/log/freeram.log`. You can check this file to see when the script was run and how much memory was freed.
 
-## Authors
-This script was created by [mrprohack](https://github.com/mrprohack) and [tamilanmkv](https://github.com/tamilanmkv).
+## Log File
+All script operations are logged to `/var/log/freeram.log`, providing a record of when the script was run and how much memory was freed.
+
+## Authors and Contributions
+This script was initially created by [mrprohack](https://github.com/mrprohack) and [tamilanmkv](https://github.com/tamilanmkv), with subsequent enhancements and contributions from the open-source community.
 
 ## License
-This script is released under the MIT License. Feel free to use, modify, and distribute it as you like.
+Released under the MIT License, this script is free to use, modify, and distribute as desired.
