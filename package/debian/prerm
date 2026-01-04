@@ -1,0 +1,23 @@
+#!/bin/bash
+# debian prerm
+
+set -e
+
+case "$1" in
+    remove|upgrade)
+        # Keep logs on upgrade
+        if [[ "$1" == "remove" ]]; then
+            rm -f /usr/local/bin/freeram
+            rm -f /var/log/freeram.log
+            rm -rf /var/lib/freeram
+        fi
+        ;;
+    failed-upgrade)
+        ;;
+    *)
+        echo "prerm called with unknown argument $1" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#

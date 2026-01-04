@@ -1,0 +1,10 @@
+[Unit]
+Description=Freeram Cache Cleaner
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/freeram -y -s
+User=root
+
+[Install]
+WantedBy=multi-user.target

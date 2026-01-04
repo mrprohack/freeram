@@ -1,0 +1,21 @@
+#!/bin/bash
+# debian postinst
+
+set -e
+
+case "$1" in
+    configure)
+        chmod +x /usr/local/bin/freeram
+        touch /var/log/freeram.log
+        mkdir -p /var/lib/freeram
+        chmod 755 /var/log/freeram.log /var/lib/freeram
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument $1" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#

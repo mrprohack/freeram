@@ -1,41 +1,89 @@
-# Enhanced Clear Cached Memory Script
+# freeram - Fast RAM Cache Cleaner
 
-This Bash script efficiently clears the cached memory on (Ubuntu/Debian) Linux systems, freeing up RAM by clearing the file system buffers and caches, and includes additional features for improved usability and logging.
+Fast, simple, zero-dependency script to clear cached memory on Linux systems.
 
-## Key Features
-- Clears cached memory to free up RAM, enhancing system performance.
-- Logs the amount of memory freed to `/var/log/freeram.log` for auditing and monitoring purposes.
-- Presents a confirmation prompt before executing the cache clearing operation to prevent accidental runs.
-- Automatically checks for and installs the required `bc` tool if it's not already installed.
-- Optionally downloads and installs the script directly to the system with appropriate permissions.
+## Features
+
+- **Zero dependencies** - Pure bash, no external tools required
+- **Cross-distribution** - Works on Ubuntu, Debian, Fedora, Arch, and more
+- **Multiple modes** - Interactive, silent, test, and statistics modes
+- **History tracking** - Tracks memory freed over time
+- **Professional** - Install/uninstall scripts, man page, examples
+
+## Installation
+
+```bash
+# Clone or download
+git clone https://github.com/yourusername/freeram.git
+cd freeram
+
+# Install system-wide
+sudo ./install.sh
+```
 
 ## Usage
-To utilize the script, run it with root privileges:
 
-```sh
-sudo ./freeram
+```bash
+sudo freeram              # Interactive mode
+sudo freeram -y           # Auto-confirm
+sudo freeram -s           # Silent mode
+sudo freeram -t           # Test mode (dry run)
+sudo freeram --stats      # Show statistics
+sudo freeram -h           # Show help
 ```
 
-The script will display detailed information about your current memory usage and the amount of memory that will be freed up by clearing the caches. A confirmation prompt will appear before proceeding with the operation.
+## Options
 
-## Dependencies
-The script requires the `bc` tool. If not installed, it can be added using:
+| Option | Description |
+|--------|-------------|
+| `-y, --yes` | Skip confirmation |
+| `-s, --silent` | Silent mode |
+| `-t, --test` | Test mode (dry run) |
+| `--stats` | Show statistics & history |
+| `-h, --help` | Show help |
+| `-v, --version` | Show version |
 
-```sh
-sudo apt install bc
+## Files
+
+| File | Description |
+|------|-------------|
+| `/usr/local/bin/freeram` | Main script |
+| `/var/log/freeram.log` | Activity log |
+| `/var/lib/freeram/history` | Memory freed history |
+
+## Automation
+
+### Cron (add to crontab -e)
+```bash
+# Run daily at 2 AM
+0 2 * * * /usr/local/bin/freeram -y -s
 ```
 
-For direct download and installation of the script, use:
-
-```sh
-sudo wget https://raw.githubusercontent.com/mrprohack/freeram/main/freeram -O /usr/bin/freeram && sudo chmod +x /usr/bin/freeram
+### Systemd Timer
+```bash
+sudo cp examples/freeram.service /etc/systemd/system/
+sudo cp examples/freeram.timer /etc/systemd/system/
+sudo systemctl enable --now freeram.timer
 ```
 
-## Log File
-All script operations are logged to `/var/log/freeram.log`, providing a record of when the script was run and how much memory was freed.
+## Testing
 
-## Authors and Contributions
-This script was initially created by [mrprohack](https://github.com/mrprohack) and [tamilanmkv](https://github.com/tamilanmkv), with subsequent enhancements and contributions from the open-source community.
+```bash
+./test.sh
+```
+
+## Uninstall
+
+```bash
+sudo ./uninstall.sh
+```
+
+## Requirements
+
+- Linux with `/proc/meminfo`
+- Root privileges (sudo)
+- Bash 4.0+
 
 ## License
-Released under the MIT License, this script is free to use, modify, and distribute as desired.
+
+MIT

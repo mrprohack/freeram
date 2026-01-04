@@ -1,75 +1,146 @@
 #!/usr/bin/env bash
 
-##
-# Bash script to clear cached memory on (Ubuntu/Debian) Linux.
-# This script frees up RAM by clearing the file system buffers and caches.
-# By mrprohack and tamilanmkv
-##
+# freeram - Fast RAM Cache Cleaner
+# No external dependencies - pure bash
+# Usage: sudo freeram [OPTIONS]
 
-# Check if script is run as root
-if [[ $EUID -ne 0 ]]; then
-  printf "This script must be run as root\n" >&2
-  exit 1
-fi
+VERSION="2.0.0"
+LOG="${LOG:-/var/log/freeram.log}"
+HISTORY="${HISTORY:-/var/lib/freeram/history}"
+DATA_DIR="$(dirname "$HISTORY")"
 
-# Define color codes
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# Defaults
+SILENT=false
+TEST_MODE=false
+STATS=false
 
-# Check if bc is installed
-if ! command -v bc &>/dev/null; then
-  printf "${RED}bc tool is not installed. Please install it before running this script.${NC}\n"
-  printf "${YELLOW}You can install it by running the following command:${NC}\n"
-  printf "${GREEN}sudo apt install bc${NC}\n"
-  exit 1
-fi
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -y|--yes) AUTO_YES=true; shift ;;
+    -s|--silent) SILENT=true; shift ;;
+    -t|--test) TEST_MODE=true; shift ;;
+    --stats) STATS=true; shift ;;
+    -h|--help)
+      echo "freeram $VERSION - Fast RAM Cache Cleaner"
+      echo ""
+      echo "Usage: sudo freeram [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  -y, --yes    Skip confirmation"
+      echo "  -s, --silent  Silent mode (no output)"
+      echo "  -t, --test    Test mode (dry run)"
+      echo "  --stats       Show statistics"
+      echo "  -h, --help    Show this help"
+      echo "  -v, --version Show version"
+      exit 0
+      ;;
+    -v|--version) echo "freeram $VERSION"; exit 0 ;;
+    *) shift ;;
+  esac
+done
 
-# Get memory information
-free_memory_before=$(awk '/^MemFree:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
-cached_memory_before=$(awk '/^Cached:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
+# Root check
+[[ $EUID -eq 0 ]] || { echo "Run as root" >&2; exit 1; }
 
-# Log file path
-LOG_FILE="/var/log/freeram.log"
-
-# Function to log messages
-log_message() {
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"$LOG_FILE"
+# Detect distribution
+detect_distro() {
+  if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    echo "$ID"
+  elif [[ -f /etc/redhat-release ]]; then
+    echo "rhel"
+  elif [[ -f /etc/arch-release ]]; then
+    echo "arch"
+  elif [[ -f /etc/debian_version ]]; then
+    echo "debian"
+  else
+    echo "unknown"
+  fi
 }
 
-# Output information
-printf "${YELLOW}This script will clear cached memory and free up your RAM.\n\nAt the moment you have ${GREEN}%0.2f MiB${NC} cached and ${GREEN}%0.2f MiB${NC} free memory.\n" \
-  "$cached_memory_before" "$free_memory_before"
+# Get memory stats (distribution-aware)
+get_memory() {
+  local distro="$1"
+  case "$distro" in
+    ubuntu|debian|linuxmint|pop)
+      awk '/^(MemFree|Cached):/ {print $2}' /proc/meminfo
+      ;;
+    fedora|rhel|centos)
+      awk '/^(MemFree|Buffers|Cached):/ {print $2}' /proc/meminfo
+      ;;
+    arch|manjaro)
+      awk '/^(MemFree|Cached):/ {print $2}' /proc/meminfo
+      ;;
+    *)
+      awk '/^(MemFree|Cached):/ {print $2}' /proc/meminfo
+      ;;
+  esac
+}
 
-# Confirmation prompt before clearing cache
-read -p "Are you sure you want to clear the cached memory? (y/n): " -n 1 -r
-echo # move to a new line
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  printf "${YELLOW}Operation cancelled.${NC}\n"
+# Read memory stats
+mem_free=$(awk '/^MemFree:/ {print int($2/1024)}' /proc/meminfo)
+mem_cached=$(awk '/^Cached:/ {print int($2/1024)}' /proc/meminfo)
+
+# Show statistics
+show_stats() {
+  echo "Memory Statistics"
+  echo "================="
+  echo "Current Free: ${mem_free} MiB"
+  echo "Current Cached: ${mem_cached} MiB"
+  echo ""
+  
+  if [[ -f "$HISTORY" ]]; then
+    echo "Recent History (last 5 runs):"
+    tail -5 "$HISTORY" 2>/dev/null || echo "No history available"
+    echo ""
+    
+    echo "Total Freed (all time):"
+    awk '{sum+=$NF} END {print sum " MiB"}' "$HISTORY" 2>/dev/null || echo "0 MiB"
+  else
+    echo "No history yet. Run freeram to start tracking."
+  fi
   exit 0
+}
+
+# Show stats if requested
+[[ "$STATS" == "true" ]] && show_stats
+
+# Silent mode - skip all output
+[[ "$SILENT" == "true" ]] && {
+  [[ "$AUTO_YES" != "true" ]] && { echo "Use -y with -s for silent mode" >&2; exit 1; }
+} || {
+  echo "Free: ${mem_free} MiB, Cached: ${mem_cached} MiB"
+}
+
+# Test mode - dry run
+[[ "$TEST_MODE" == "true" ]] && {
+  echo "[TEST MODE] Would clear cache. Memory: Free=${mem_free} MiB, Cached=${mem_cached} MiB"
+  exit 0
+}
+
+# Confirmation
+if [[ "$AUTO_YES" != "true" ]] && [[ "$SILENT" != "true" ]]; then
+  read -p "Clear cache? (y/n): " -n 1; echo
+  [[ ! $REPLY =~ ^[Yy] ]] && { echo "Cancelled"; exit 0; }
 fi
 
-# Test sync
-if ! sync; then
-  printf "${RED}Failed to sync the filesystem.${NC}\n"
-  exit 1
-fi
+# Create data directory
+mkdir -p "$DATA_DIR" 2>/dev/null || true
 
-# Clear filesystem buffer using "sync" and clear caches
-if ! echo 3 >/proc/sys/vm/drop_caches; then
-  printf "${RED}Failed to clear the caches. Please check your permissions or system settings.${NC}\n"
-  exit 1
-fi
+# Drop caches
+echo 3 >/proc/sys/vm/drop_caches
 
-free_memory_after=$(awk '/^MemFree:/ {print $2}' /proc/meminfo | awk '{print $1/1024}')
+# Calculate freed memory
+mem_after=$(awk '/^MemFree:/ {print int($2/1024)}' /proc/meminfo)
+freed=$((mem_after - mem_free))
 
-# Calculate the amount of memory freed
-memory_freed=$(echo "scale=2; $free_memory_after - $free_memory_before" | bc)
+# Log to history
+mkdir -p "$DATA_DIR"
+echo "$(date '+%Y-%m-%d %H:%M:%S') ${mem_free} ${mem_after} ${freed}" >> "$HISTORY" 2>/dev/null || true
 
-# Log the memory freed
-log_message "Cleared cached memory: Freed ${memory_freed} MiB."
+# Log to system log
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Freed ${freed} MiB" >> "$LOG"
 
-# Output summary
-printf "This freed ${GREEN}%0.2f MiB${NC}, so now you have ${GREEN}%0.2f MiB${NC} of free RAM.\n" \
-  "$memory_freed" "$free_memory_after"
+# Output result
+[[ "$SILENT" != "true" ]] && echo "Freed ${freed} MiB. Now free: ${mem_after} MiB"

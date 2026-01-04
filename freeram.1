@@ -1,0 +1,81 @@
+.TH FREERAM 1 "January 2026" "freeram 2.0.0"
+.SH NAME
+freeram \- clear cached memory to free up RAM
+
+.SH SYNOPSIS
+.B freeram
+[\fB\-y\fR]
+[\fB\-s\fR]
+[\fB\-t\fR]
+[\fB\-\-stats\fR]
+[\fB\-h\fR]
+[\fB\-v\fR]
+
+.SH DESCRIPTION
+.B freeram
+clears the filesystem cache to free up RAM on Linux systems.
+It reads memory statistics, drops caches, and reports the amount of memory freed.
+
+.SH OPTIONS
+
+.TP
+.BR \-y ", " \-\-yes
+Skip confirmation prompt. Useful for scripts and automation.
+
+.TP
+.BR \-s ", " \-\-silent
+Silent mode. No output unless an error occurs.
+
+.TP
+.BR \-t ", " \-\-test
+Test mode (dry run). Shows what would happen without actually clearing caches.
+
+.TP
+.BR \-\-stats
+Display memory statistics and history.
+
+.TP
+.BR \-h ", " \-\-help
+Show this help message.
+
+.TP
+.BR \-v ", " \-\-version
+Show version information.
+
+.SH FILES
+
+.TP
+.I /var/log/freeram.log
+Log file containing timestamped records of memory freed.
+
+.TP
+.I /var/lib/freeram/history
+History file tracking all memory freeing operations.
+
+.SH EXAMPLES
+
+.TP
+Interactive mode:
+.B sudo freeram
+
+.TP
+Non-interactive:
+.B sudo freeram -y
+
+.TP
+Show statistics:
+.B sudo freeram --stats
+
+.TP
+Dry run:
+.B sudo freeram -t
+
+.SH REQUIREMENTS
+Root privileges (sudo)
+
+.SH AUTHOR
+Originally by mrprohack and tamilanmkv
+
+.SH SEE ALSO
+.BR sync (1),
+.BR drop_caches (7)

@@ -1,0 +1,14 @@
+# freeram cron examples
+# Add to /etc/cron.d/ or user's crontab (crontab -e)
+
+# Run every day at 2 AM (silent mode, auto-confirm)
+0 2 * * * /usr/local/bin/freeram -y -s
+
+# Run every Sunday at 3 AM and show stats
+0 3 * * 0 /usr/local/bin/freeram -y && /usr/local/bin/freeram --stats
+
+# Run every 6 hours (for busy systems)
+0 */6 * * * /usr/local/bin/freeram -y -s
+
+# Run on system boot (if root)
+@reboot /usr/local/bin/freeram -y -s

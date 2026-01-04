@@ -1,0 +1,10 @@
+Package: freeram
+Version: 2.0.0
+Section: system
+Priority: optional
+Architecture: all
+Depends: bash (>= 4.0), procps
+Maintainer: Your Name <your@email.com>
+Description: Fast RAM Cache Cleaner
+ Clears cached memory to free up RAM on Linux systems.
+ No external dependencies required.
