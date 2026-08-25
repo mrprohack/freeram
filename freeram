@@ -1,146 +1,163 @@
 #!/usr/bin/env bash
 
-# freeram - Fast RAM Cache Cleaner
-# No external dependencies - pure bash
-# Usage: sudo freeram [OPTIONS]
+# freeram - Linux page-cache cleaner with dry-run and history support.
 
-VERSION="2.0.0"
+set -uo pipefail
+
+VERSION="2.1.0"
 LOG="${LOG:-/var/log/freeram.log}"
 HISTORY="${HISTORY:-/var/lib/freeram/history}"
+MEMINFO="${FREERAM_MEMINFO:-/proc/meminfo}"
+DROP_CACHES="${FREERAM_DROP_CACHES:-/proc/sys/vm/drop_caches}"
+EFFECTIVE_UID="${FREERAM_EUID:-$EUID}"
 DATA_DIR="$(dirname "$HISTORY")"
 
-# Defaults
+AUTO_YES=false
 SILENT=false
 TEST_MODE=false
 STATS=false
 
-# Parse arguments
+error() { printf 'freeram: %s\n' "$*" >&2; }
+warn() { printf 'freeram: warning: %s\n' "$*" >&2; }
+emit() { [[ "$SILENT" == "true" ]] || printf '%s\n' "$*"; }
+
+show_help() {
+  cat <<EOF
+freeram $VERSION - Linux page-cache cleaner
+
+Usage: freeram [OPTIONS]
+
+Options:
+  -y, --yes      Skip confirmation before clearing caches
+  -s, --silent   Suppress normal output (requires --yes for cleaning)
+  -t, --test     Dry run; show what would be done without clearing caches
+      --stats    Show current memory statistics and recent history
+  -h, --help     Show this help
+  -v, --version  Show version
+
+Only an actual cache-cleaning run requires root privileges.
+EOF
+}
+
 while [[ $# -gt 0 ]]; do
-  case $1 in
-    -y|--yes) AUTO_YES=true; shift ;;
-    -s|--silent) SILENT=true; shift ;;
-    -t|--test) TEST_MODE=true; shift ;;
-    --stats) STATS=true; shift ;;
-    -h|--help)
-      echo "freeram $VERSION - Fast RAM Cache Cleaner"
-      echo ""
-      echo "Usage: sudo freeram [OPTIONS]"
-      echo ""
-      echo "Options:"
-      echo "  -y, --yes    Skip confirmation"
-      echo "  -s, --silent  Silent mode (no output)"
-      echo "  -t, --test    Test mode (dry run)"
-      echo "  --stats       Show statistics"
-      echo "  -h, --help    Show this help"
-      echo "  -v, --version Show version"
-      exit 0
-      ;;
-    -v|--version) echo "freeram $VERSION"; exit 0 ;;
-    *) shift ;;
+  case "$1" in
+    -y|--yes) AUTO_YES=true ;;
+    -s|--silent) SILENT=true ;;
+    -t|--test) TEST_MODE=true ;;
+    --stats) STATS=true ;;
+    -h|--help) show_help; exit 0 ;;
+    -v|--version) printf 'freeram %s\n' "$VERSION"; exit 0 ;;
+    --) shift; [[ $# -eq 0 ]] || { error "Unexpected argument: $1"; exit 2; }; break ;;
+    -*) error "Unknown option: $1"; error "Try 'freeram --help' for usage."; exit 2 ;;
+    *) error "Unexpected argument: $1"; error "Try 'freeram --help' for usage."; exit 2 ;;
   esac
+  shift
 done
 
-# Root check
-[[ $EUID -eq 0 ]] || { echo "Run as root" >&2; exit 1; }
+for command_name in awk; do
+  command -v "$command_name" >/dev/null 2>&1 || { error "Required command not found: $command_name"; exit 1; }
+done
 
-# Detect distribution
-detect_distro() {
-  if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-    echo "$ID"
-  elif [[ -f /etc/redhat-release ]]; then
-    echo "rhel"
-  elif [[ -f /etc/arch-release ]]; then
-    echo "arch"
-  elif [[ -f /etc/debian_version ]]; then
-    echo "debian"
-  else
-    echo "unknown"
-  fi
+read_memory() {
+  [[ -r "$MEMINFO" ]] || { error "Cannot read memory information from $MEMINFO"; return 1; }
+
+  mem_free=$(awk '/^MemFree:/ {print int($2/1024); found=1; exit} END {if (!found) exit 1}' "$MEMINFO") || {
+    error "Cannot read memory information: MemFree is missing from $MEMINFO"
+    return 1
+  }
+
+  mem_cached=$(awk '
+    /^Cached:/ {cached=$2}
+    /^SReclaimable:/ {reclaimable=$2}
+    /^Shmem:/ {shmem=$2}
+    END {
+      if (cached == "") exit 1
+      value=cached + reclaimable - shmem
+      if (value < 0) value=0
+      print int(value/1024)
+    }
+  ' "$MEMINFO") || {
+    error "Cannot read memory information: Cached is missing from $MEMINFO"
+    return 1
+  }
 }
 
-# Get memory stats (distribution-aware)
-get_memory() {
-  local distro="$1"
-  case "$distro" in
-    ubuntu|debian|linuxmint|pop)
-      awk '/^(MemFree|Cached):/ {print $2}' /proc/meminfo
-      ;;
-    fedora|rhel|centos)
-      awk '/^(MemFree|Buffers|Cached):/ {print $2}' /proc/meminfo
-      ;;
-    arch|manjaro)
-      awk '/^(MemFree|Cached):/ {print $2}' /proc/meminfo
-      ;;
-    *)
-      awk '/^(MemFree|Cached):/ {print $2}' /proc/meminfo
-      ;;
-  esac
-}
-
-# Read memory stats
-mem_free=$(awk '/^MemFree:/ {print int($2/1024)}' /proc/meminfo)
-mem_cached=$(awk '/^Cached:/ {print int($2/1024)}' /proc/meminfo)
-
-# Show statistics
 show_stats() {
-  echo "Memory Statistics"
-  echo "================="
-  echo "Current Free: ${mem_free} MiB"
-  echo "Current Cached: ${mem_cached} MiB"
-  echo ""
-  
+  read_memory || exit 1
+
+  printf 'Memory Statistics\n'
+  printf '=================\n'
+  printf 'Current Free: %s MiB\n' "$mem_free"
+  printf 'Reclaimable Cache: %s MiB\n\n' "$mem_cached"
+
   if [[ -f "$HISTORY" ]]; then
-    echo "Recent History (last 5 runs):"
-    tail -5 "$HISTORY" 2>/dev/null || echo "No history available"
-    echo ""
-    
-    echo "Total Freed (all time):"
-    awk '{sum+=$NF} END {print sum " MiB"}' "$HISTORY" 2>/dev/null || echo "0 MiB"
+    printf 'Recent History (last 5 runs):\n'
+    if command -v tail >/dev/null 2>&1; then
+      tail -n 5 "$HISTORY" 2>/dev/null || warn "Could not read history from $HISTORY"
+    else
+      warn "tail is unavailable; recent history cannot be displayed"
+    fi
+    printf '\nTotal Freed (recorded):\n'
+    awk '{sum += $NF} END {printf "%d MiB\n", sum + 0}' "$HISTORY" 2>/dev/null || warn "Could not summarize history from $HISTORY"
   else
-    echo "No history yet. Run freeram to start tracking."
+    printf 'No history yet. Run freeram to start tracking.\n'
   fi
+}
+
+if [[ "$STATS" == "true" ]]; then
+  show_stats
   exit 0
-}
-
-# Show stats if requested
-[[ "$STATS" == "true" ]] && show_stats
-
-# Silent mode - skip all output
-[[ "$SILENT" == "true" ]] && {
-  [[ "$AUTO_YES" != "true" ]] && { echo "Use -y with -s for silent mode" >&2; exit 1; }
-} || {
-  echo "Free: ${mem_free} MiB, Cached: ${mem_cached} MiB"
-}
-
-# Test mode - dry run
-[[ "$TEST_MODE" == "true" ]] && {
-  echo "[TEST MODE] Would clear cache. Memory: Free=${mem_free} MiB, Cached=${mem_cached} MiB"
-  exit 0
-}
-
-# Confirmation
-if [[ "$AUTO_YES" != "true" ]] && [[ "$SILENT" != "true" ]]; then
-  read -p "Clear cache? (y/n): " -n 1; echo
-  [[ ! $REPLY =~ ^[Yy] ]] && { echo "Cancelled"; exit 0; }
 fi
 
-# Create data directory
-mkdir -p "$DATA_DIR" 2>/dev/null || true
+read_memory || exit 1
 
-# Drop caches
-echo 3 >/proc/sys/vm/drop_caches
+if [[ "$TEST_MODE" == "true" ]]; then
+  emit "[TEST MODE] Would clear Linux page caches. Free=${mem_free} MiB, reclaimable cache=${mem_cached} MiB"
+  exit 0
+fi
 
-# Calculate freed memory
-mem_after=$(awk '/^MemFree:/ {print int($2/1024)}' /proc/meminfo)
-freed=$((mem_after - mem_free))
+if [[ "$SILENT" == "true" && "$AUTO_YES" != "true" ]]; then
+  error "Silent mode requires --yes to avoid an unattended confirmation prompt."
+  exit 2
+fi
 
-# Log to history
-mkdir -p "$DATA_DIR"
-echo "$(date '+%Y-%m-%d %H:%M:%S') ${mem_free} ${mem_after} ${freed}" >> "$HISTORY" 2>/dev/null || true
+if [[ "$EFFECTIVE_UID" != "0" ]]; then
+  error "Cache cleaning requires root privileges. Re-run with sudo, or use --test/--stats without sudo."
+  exit 1
+fi
 
-# Log to system log
-echo "$(date '+%Y-%m-%d %H:%M:%S') - Freed ${freed} MiB" >> "$LOG"
+emit "Free: ${mem_free} MiB, reclaimable cache: ${mem_cached} MiB"
 
-# Output result
-[[ "$SILENT" != "true" ]] && echo "Freed ${freed} MiB. Now free: ${mem_after} MiB"
+if [[ "$AUTO_YES" != "true" ]]; then
+  if [[ ! -t 0 ]]; then
+    error "Confirmation requires an interactive terminal; use --yes for automation."
+    exit 2
+  fi
+  read -r -p "Clear Linux page caches? [y/N]: " reply
+  [[ "$reply" =~ ^[Yy]$ ]] || { emit "Cancelled"; exit 0; }
+fi
+
+[[ -e "$DROP_CACHES" ]] || { error "Cache control file does not exist: $DROP_CACHES"; exit 1; }
+[[ -w "$DROP_CACHES" ]] || { error "Cache control file is not writable: $DROP_CACHES"; exit 1; }
+
+if command -v sync >/dev/null 2>&1; then
+  sync || { error "Failed to sync pending filesystem writes; caches were not dropped."; exit 1; }
+else
+  error "Required command not found: sync"
+  exit 1
+fi
+
+if ! printf '3\n' >"$DROP_CACHES"; then
+  error "Failed to drop caches via $DROP_CACHES"
+  exit 1
+fi
+
+read_memory || { error "Caches were dropped, but post-clean memory statistics could not be read."; exit 1; }
+mem_after="$mem_free"
+mem_before_free="${MEM_BEFORE_FREE:-}"
+
+# Preserve the pre-clean value. MEM_BEFORE_FREE is set immediately below for
+# clarity in the normal path; this fallback protects against accidental reuse.
+if [[ -z "$mem_before_free" ]]; then
+  mem_before_free=0
+fi
