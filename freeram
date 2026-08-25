@@ -54,9 +54,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-for command_name in awk; do
-  command -v "$command_name" >/dev/null 2>&1 || { error "Required command not found: $command_name"; exit 1; }
-done
+command -v awk >/dev/null 2>&1 || { error "Required command not found: awk"; exit 1; }
 
 read_memory() {
   [[ -r "$MEMINFO" ]] || { error "Cannot read memory information from $MEMINFO"; return 1; }
@@ -139,14 +137,11 @@ fi
 
 [[ -e "$DROP_CACHES" ]] || { error "Cache control file does not exist: $DROP_CACHES"; exit 1; }
 [[ -w "$DROP_CACHES" ]] || { error "Cache control file is not writable: $DROP_CACHES"; exit 1; }
+command -v sync >/dev/null 2>&1 || { error "Required command not found: sync"; exit 1; }
 
-if command -v sync >/dev/null 2>&1; then
-  sync || { error "Failed to sync pending filesystem writes; caches were not dropped."; exit 1; }
-else
-  error "Required command not found: sync"
-  exit 1
-fi
+mem_before_free="$mem_free"
 
+sync || { error "Failed to sync pending filesystem writes; caches were not dropped."; exit 1; }
 if ! printf '3\n' >"$DROP_CACHES"; then
   error "Failed to drop caches via $DROP_CACHES"
   exit 1
@@ -154,10 +149,28 @@ fi
 
 read_memory || { error "Caches were dropped, but post-clean memory statistics could not be read."; exit 1; }
 mem_after="$mem_free"
-mem_before_free="${MEM_BEFORE_FREE:-}"
-
-# Preserve the pre-clean value. MEM_BEFORE_FREE is set immediately below for
-# clarity in the normal path; this fallback protects against accidental reuse.
-if [[ -z "$mem_before_free" ]]; then
-  mem_before_free=0
+freed=$((mem_after - mem_before_free))
+if (( freed < 0 )); then
+  warn "MemFree decreased during measurement; recording 0 MiB freed instead of a negative value."
+  freed=0
 fi
+
+timestamp=""
+if command -v date >/dev/null 2>&1; then
+  timestamp="$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null || true)"
+fi
+[[ -n "$timestamp" ]] || timestamp="unknown-time"
+
+if command -v mkdir >/dev/null 2>&1 && mkdir -p "$DATA_DIR" 2>/dev/null; then
+  if ! printf '%s %s %s %s\n' "$timestamp" "$mem_before_free" "$mem_after" "$freed" >>"$HISTORY" 2>/dev/null; then
+    warn "Could not append history to $HISTORY"
+  fi
+else
+  warn "Could not create history directory $DATA_DIR; history was not recorded"
+fi
+
+if ! printf '%s - Freed %s MiB (MemFree %s -> %s MiB)\n' "$timestamp" "$freed" "$mem_before_free" "$mem_after" >>"$LOG" 2>/dev/null; then
+  warn "Could not append activity log to $LOG"
+fi
+
+emit "Freed ${freed} MiB. Now free: ${mem_after} MiB"
