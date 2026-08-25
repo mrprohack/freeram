@@ -1,71 +1,85 @@
 #!/usr/bin/env bash
 
-# freeram test suite
+# freeram regression test suite
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FREERAM="$SCRIPT_DIR/freeram"
 PASS=0
 FAIL=0
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
-pass() { echo "✓ $1"; ((PASS++)); }
-fail() { echo "✗ $1"; ((FAIL++)); }
+pass() { printf '✓ %s\n' "$1"; PASS=$((PASS + 1)); }
+fail() { printf '✗ %s\n' "$1"; FAIL=$((FAIL + 1)); }
 
-echo "freeram Test Suite"
-echo "=================="
-echo ""
+assert_success() {
+  local name="$1"; shift
+  if "$@" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then pass "$name"; else fail "$name"; cat "$TMP_DIR/err" >&2; fi
+}
 
-# Test 1: Syntax check
-if bash -n "$FREERAM" 2>/dev/null; then
-  pass "Syntax check"
+assert_failure_contains() {
+  local name="$1" expected="$2"; shift 2
+  if "$@" >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
+    fail "$name (unexpected success)"
+  elif grep -Fq "$expected" "$TMP_DIR/err"; then
+    pass "$name"
+  else
+    fail "$name (missing error: $expected)"
+    cat "$TMP_DIR/err" >&2
+  fi
+}
+
+assert_output_contains() {
+  local name="$1" expected="$2"; shift 2
+  if "$@" >"$TMP_DIR/out" 2>"$TMP_DIR/err" && grep -Fq "$expected" "$TMP_DIR/out"; then
+    pass "$name"
+  else
+    fail "$name (missing output: $expected)"
+    cat "$TMP_DIR/out" >&2
+    cat "$TMP_DIR/err" >&2
+  fi
+}
+
+cat >"$TMP_DIR/meminfo" <<'MEMINFO'
+MemTotal:        8000000 kB
+MemFree:         2048000 kB
+Buffers:          128000 kB
+Cached:          1024000 kB
+SReclaimable:     256000 kB
+Shmem:             64000 kB
+MEMINFO
+
+printf 'freeram Test Suite\n==================\n\n'
+
+assert_success "Main script syntax" bash -n "$FREERAM"
+assert_success "Installer syntax" bash -n "$SCRIPT_DIR/install.sh"
+assert_success "Uninstaller syntax" bash -n "$SCRIPT_DIR/uninstall.sh"
+assert_output_contains "Help option" "Usage:" "$FREERAM" --help
+assert_output_contains "Version option" "freeram" "$FREERAM" --version
+assert_failure_contains "Unknown option rejected" "Unknown option" "$FREERAM" --definitely-invalid
+
+# Read-only commands must work without root. FREERAM_EUID is a test hook used
+# to make this deterministic even when the suite itself runs as root.
+assert_output_contains "Dry run works without root" "TEST MODE" env FREERAM_EUID=1000 FREERAM_MEMINFO="$TMP_DIR/meminfo" "$FREERAM" --test
+assert_output_contains "Stats work without root" "Memory Statistics" env FREERAM_EUID=1000 FREERAM_MEMINFO="$TMP_DIR/meminfo" HISTORY="$TMP_DIR/missing-history" "$FREERAM" --stats
+
+assert_failure_contains "Silent mode requires --yes" "requires --yes" env FREERAM_EUID=0 FREERAM_MEMINFO="$TMP_DIR/meminfo" FREERAM_DROP_CACHES="$TMP_DIR/drop-caches" "$FREERAM" --silent
+assert_failure_contains "Cleaning requires root" "root privileges" env FREERAM_EUID=1000 FREERAM_MEMINFO="$TMP_DIR/meminfo" FREERAM_DROP_CACHES="$TMP_DIR/drop-caches" "$FREERAM" --yes
+assert_failure_contains "Missing meminfo is reported" "Cannot read memory information" env FREERAM_EUID=1000 FREERAM_MEMINFO="$TMP_DIR/does-not-exist" "$FREERAM" --stats
+
+# Cache-write failure must stop before success/history logging.
+mkdir "$TMP_DIR/not-a-file"
+if env FREERAM_EUID=0 FREERAM_MEMINFO="$TMP_DIR/meminfo" FREERAM_DROP_CACHES="$TMP_DIR/not-a-file" LOG="$TMP_DIR/freeram.log" HISTORY="$TMP_DIR/history" "$FREERAM" --yes >"$TMP_DIR/out" 2>"$TMP_DIR/err"; then
+  fail "Cache-write failure returns non-zero"
+elif grep -Fq "Failed to drop caches" "$TMP_DIR/err" && [[ ! -e "$TMP_DIR/history" ]] && ! grep -Fq "Freed" "$TMP_DIR/out"; then
+  pass "Cache-write failure stops cleanly"
 else
-  fail "Syntax check"
+  fail "Cache-write failure stops cleanly"
+  cat "$TMP_DIR/out" >&2
+  cat "$TMP_DIR/err" >&2
 fi
 
-# Test 2: Help option
-if "$FREERAM" -h 2>/dev/null | grep -q "Usage"; then
-  pass "Help option (-h)"
-else
-  fail "Help option (-h)"
-fi
-
-# Test 3: Version option
-if "$FREERAM" -v 2>/dev/null | grep -q "freeram"; then
-  pass "Version option (-v)"
-else
-  fail "Version option (-v)"
-fi
-
-# Test 4: Test mode
-if "$FREERAM" -t 2>/dev/null | grep -q "TEST MODE"; then
-  pass "Test mode (-t)"
-else
-  fail "Test mode (-t)"
-fi
-
-# Test 5: Stats option (should not error)
-if "$FREERAM" --stats 2>/dev/null | grep -q "Statistics"; then
-  pass "Stats option (--stats)"
-else
-  fail "Stats option (--stats)"
-fi
-
-# Test 6: Run as non-root (should fail)
-if ! "$FREERAM" -y 2>/dev/null; then
-  pass "Non-root rejection"
-else
-  fail "Non-root rejection"
-fi
-
-# Test 7: Memory reading
-MEM_FREE=$("$FREERAM" --stats 2>/dev/null | grep "Free:" | grep -oE '[0-9]+')
-if [[ -n "$MEM_FREE" ]] && [[ "$MEM_FREE" -gt 0 ]]; then
-  pass "Memory reading ($MEM_FREE MiB)"
-else
-  fail "Memory reading"
-fi
-
-echo ""
-echo "Results: $PASS passed, $FAIL failed"
-exit $FAIL
+printf '\nResults: %d passed, %d failed\n' "$PASS" "$FAIL"
+(( FAIL == 0 ))
