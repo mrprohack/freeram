@@ -1,10 +1,20 @@
+freeram (2.1.0) stable; urgency=medium
+
+  * Reject invalid command-line options with clear errors.
+  * Allow dry-run and statistics modes without root privileges.
+  * Validate procfs memory/cache interfaces and fail cleanly on cache errors.
+  * Improve history and activity-log diagnostics.
+  * Harden installer/uninstaller and install the man page.
+  * Add regression tests and GitHub Actions CI.
+  * Rewrite safety, automation, and troubleshooting documentation.
+
+ -- mrprohack <mrprohack@users.noreply.github.com>  Tue, 25 Aug 2026 08:00:00 +0000
+
 freeram (2.0.0) stable; urgency=low
 
-  * Zero dependencies - pure bash
-  * Cross-distribution support
-  * Multiple modes: silent, test, stats
-  * History tracking
-  * Install/uninstall scripts
-  * Test suite included
+  * Added cross-distribution Linux support.
+  * Added silent, test, and statistics modes.
+  * Added history tracking, install/uninstall scripts, man page, examples,
+    Debian packaging files, and a test suite.
 
- -- Your Name <your@email.com>  Sun, 04 Jan 2026 00:00:00 +0000
+ -- mrprohack <mrprohack@users.noreply.github.com>  Sun, 04 Jan 2026 00:00:00 +0000

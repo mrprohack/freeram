@@ -1,10 +1,11 @@
 Package: freeram
-Version: 2.0.0
+Version: 2.1.0
 Section: system
 Priority: optional
 Architecture: all
-Depends: bash (>= 4.0), procps
-Maintainer: Your Name <your@email.com>
-Description: Fast RAM Cache Cleaner
- Clears cached memory to free up RAM on Linux systems.
- No external dependencies required.
+Depends: bash (>= 4.0), coreutils, mawk | gawk
+Maintainer: mrprohack <mrprohack@users.noreply.github.com>
+Description: Linux page-cache inspection and cleaning utility
+ Inspect Linux memory cache usage and, when explicitly run as root, request
+ the kernel to drop page caches. Includes dry-run, statistics, history,
+ installer/uninstaller, man page, and regression tests.

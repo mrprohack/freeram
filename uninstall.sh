@@ -4,32 +4,52 @@
 
 set -euo pipefail
 
-TARGET_FILE="/usr/local/bin/freeram"
-LOG_FILE="/var/log/freeram.log"
-HISTORY_DIR="/var/lib/freeram"
+INSTALL_ROOT="${FREERAM_INSTALL_ROOT:-}"
+EFFECTIVE_UID="${FREERAM_EUID:-$EUID}"
+TARGET_FILE="$INSTALL_ROOT/usr/local/bin/freeram"
+MAN_FILE="$INSTALL_ROOT/usr/local/share/man/man1/freeram.1"
+LOG_FILE="$INSTALL_ROOT/var/log/freeram.log"
+HISTORY_DIR="$INSTALL_ROOT/var/lib/freeram"
+AUTO_YES=false
+PURGE=false
 
-echo "freeram Uninstaller"
-echo "==================="
+error() { printf 'freeram uninstaller: %s\n' "$*" >&2; }
 
-# Check if installed
-[[ -f "$TARGET_FILE" ]] || { echo "freeram is not installed" >&2; exit 1; }
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes) AUTO_YES=true ;;
+    --purge) PURGE=true ;;
+    -h|--help)
+      printf 'Usage: sudo ./uninstall.sh [--yes] [--purge]\n'
+      printf '  --purge  Also remove freeram log and history data.\n'
+      exit 0
+      ;;
+    *) error "Unknown option: $1"; exit 2 ;;
+  esac
+  shift
+done
 
-read -p "Remove freeram? (y/n): " -n 1; echo
-[[ ! $REPLY =~ ^[Yy] ]] && { echo "Cancelled"; exit 0; }
+[[ "$EFFECTIVE_UID" == "0" ]] || { error "Uninstallation requires root privileges; re-run with sudo."; exit 1; }
 
-# Remove script
-echo "Removing freeram..."
-rm -f "$TARGET_FILE"
+if [[ ! -e "$TARGET_FILE" && ! -e "$MAN_FILE" ]]; then
+  error "freeram is not installed under ${INSTALL_ROOT:-/}."
+  exit 1
+fi
 
-# Ask about logs
-echo ""
-read -p "Remove log file? (y/n): " -n 1; echo
-[[ $REPLY =~ ^[Yy] ]] && rm -f "$LOG_FILE" && echo "Removed $LOG_FILE"
+if [[ "$AUTO_YES" != "true" ]]; then
+  [[ -t 0 ]] || { error "Confirmation requires a terminal; use --yes for non-interactive removal."; exit 2; }
+  read -r -p "Remove freeram? [y/N]: " reply
+  [[ "$reply" =~ ^[Yy]$ ]] || { printf 'Cancelled\n'; exit 0; }
+fi
 
-# Ask about history
-echo ""
-read -p "Remove history directory? (y/n): " -n 1; echo
-[[ $REPLY =~ ^[Yy] ]] && rm -rf "$HISTORY_DIR" && echo "Removed $HISTORY_DIR"
+printf 'freeram Uninstaller\n===================\n'
+rm -f "$TARGET_FILE" "$MAN_FILE" || { error "Failed to remove installed program files."; exit 1; }
 
-echo ""
-echo "freeram has been uninstalled."
+if [[ "$PURGE" == "true" ]]; then
+  rm -f "$LOG_FILE" || { error "Failed to remove $LOG_FILE"; exit 1; }
+  rm -rf "$HISTORY_DIR" || { error "Failed to remove $HISTORY_DIR"; exit 1; }
+  printf 'Removed freeram, log, and history data.\n'
+else
+  printf 'Removed freeram program files. Log and history data were kept.\n'
+  printf 'Use --purge to remove data during uninstall.\n'
+fi

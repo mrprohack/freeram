@@ -1,81 +1,119 @@
-.TH FREERAM 1 "January 2026" "freeram 2.0.0"
+.TH FREERAM 1 "August 2026" "freeram 2.1.0"
 .SH NAME
-freeram \- clear cached memory to free up RAM
+freeram \- inspect and optionally drop Linux page caches
 
 .SH SYNOPSIS
 .B freeram
-[\fB\-y\fR]
-[\fB\-s\fR]
-[\fB\-t\fR]
+[\fB\-y\fR|\fB\-\-yes\fR]
+[\fB\-s\fR|\fB\-\-silent\fR]
+[\fB\-t\fR|\fB\-\-test\fR]
 [\fB\-\-stats\fR]
-[\fB\-h\fR]
-[\fB\-v\fR]
+[\fB\-h\fR|\fB\-\-help\fR]
+[\fB\-v\fR|\fB\-\-version\fR]
 
 .SH DESCRIPTION
 .B freeram
-clears the filesystem cache to free up RAM on Linux systems.
-It reads memory statistics, drops caches, and reports the amount of memory freed.
+reads Linux memory statistics and can request the kernel to drop page caches by
+writing 3 to /proc/sys/vm/drop_caches. Actual cache cleaning requires root;
+read-only test and statistics modes do not.
+
+Linux normally manages filesystem cache automatically. Repeated cache clearing
+can reduce performance by discarding useful cached data. Use this command only
+for a measured operational or troubleshooting need.
 
 .SH OPTIONS
-
 .TP
 .BR \-y ", " \-\-yes
-Skip confirmation prompt. Useful for scripts and automation.
+Skip the interactive confirmation before a real cache-cleaning run.
 
 .TP
 .BR \-s ", " \-\-silent
-Silent mode. No output unless an error occurs.
+Suppress normal output. Errors and warnings are still written to standard error.
+For cleaning, this option requires --yes.
 
 .TP
 .BR \-t ", " \-\-test
-Test mode (dry run). Shows what would happen without actually clearing caches.
+Dry run. Display what would be done without changing kernel caches. Root is not
+required.
 
 .TP
 .BR \-\-stats
-Display memory statistics and history.
+Display current memory information and recent freeram history. Root is not
+required.
 
 .TP
 .BR \-h ", " \-\-help
-Show this help message.
+Show usage help.
 
 .TP
 .BR \-v ", " \-\-version
 Show version information.
 
+.SH OPERATION
+For a real cleaning run, freeram reads /proc/meminfo, confirms the request,
+checks root privileges, verifies /proc/sys/vm/drop_caches is writable, runs
+sync, writes 3 to drop_caches, reads memory statistics again, and records the
+observed MemFree change.
+
+The reported freed value is an observation around the operation; memory usage
+can change concurrently.
+
 .SH FILES
+.TP
+.I /usr/local/bin/freeram
+Installed command.
+
+.TP
+.I /usr/local/share/man/man1/freeram.1
+Installed manual page.
 
 .TP
 .I /var/log/freeram.log
-Log file containing timestamped records of memory freed.
+Activity log.
 
 .TP
 .I /var/lib/freeram/history
-History file tracking all memory freeing operations.
+Timestamped before/after history.
 
 .SH EXAMPLES
+.TP
+Inspect without root:
+.B freeram --stats
 
 .TP
-Interactive mode:
+Dry run without root:
+.B freeram --test
+
+.TP
+Interactive cache cleaning:
 .B sudo freeram
 
 .TP
-Non-interactive:
-.B sudo freeram -y
+Non-interactive cache cleaning:
+.B sudo freeram --yes
 
 .TP
-Show statistics:
-.B sudo freeram --stats
+Silent automation:
+.B sudo freeram --yes --silent
 
+.SH EXIT STATUS
 .TP
-Dry run:
-.B sudo freeram -t
+.B 0
+Success, or an interactive cancellation.
+.TP
+.B 1
+Runtime, environment, privilege, memory-read, or cache-drop error.
+.TP
+.B 2
+Command-line or unsafe non-interactive usage error.
 
 .SH REQUIREMENTS
-Root privileges (sudo)
+Linux procfs, Bash 4.0 or newer, awk, sync, and standard core utilities.
+Root privileges are required only for actual cache cleaning, installation, and
+uninstallation.
 
 .SH AUTHOR
-Originally by mrprohack and tamilanmkv
+Originally by mrprohack and tamilanmkv.
 
 .SH SEE ALSO
-.BR sync (1),
-.BR drop_caches (7)
+.BR sync (1)

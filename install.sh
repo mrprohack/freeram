@@ -1,55 +1,71 @@
 #!/usr/bin/env bash
 
 # freeram installer
-# Installs freeram to system
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_FILE="$SCRIPT_DIR/freeram"
-TARGET_DIR="/usr/local/bin"
+SOURCE_MAN="$SCRIPT_DIR/freeram.1"
+INSTALL_ROOT="${FREERAM_INSTALL_ROOT:-}"
+EFFECTIVE_UID="${FREERAM_EUID:-$EUID}"
+TARGET_DIR="$INSTALL_ROOT/usr/local/bin"
 TARGET_FILE="$TARGET_DIR/freeram"
-LOG_FILE="/var/log/freeram.log"
-HISTORY_DIR="/var/lib/freeram"
+MAN_DIR="$INSTALL_ROOT/usr/local/share/man/man1"
+MAN_FILE="$MAN_DIR/freeram.1"
+LOG_FILE="$INSTALL_ROOT/var/log/freeram.log"
+HISTORY_DIR="$INSTALL_ROOT/var/lib/freeram"
+AUTO_YES=false
 
-echo "freeram Installer"
-echo "================="
+error() { printf 'freeram installer: %s\n' "$*" >&2; }
 
-# Check if source exists
-[[ -f "$SOURCE_FILE" ]] || { echo "Error: freeram script not found in $SCRIPT_DIR" >&2; exit 1; }
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes) AUTO_YES=true ;;
+    -h|--help)
+      printf 'Usage: sudo ./install.sh [--yes]\n'
+      exit 0
+      ;;
+    *) error "Unknown option: $1"; exit 2 ;;
+  esac
+  shift
+done
 
-# Check if already installed
-if [[ -f "$TARGET_FILE" ]]; then
-  echo "freeram is already installed at $TARGET_FILE"
-  read -p "Reinstall? (y/n): " -n 1; echo
-  [[ ! $REPLY =~ ^[Yy] ]] && { echo "Cancelled"; exit 0; }
+[[ "$EFFECTIVE_UID" == "0" ]] || { error "Installation requires root privileges; re-run with sudo."; exit 1; }
+[[ -f "$SOURCE_FILE" ]] || { error "Main script not found: $SOURCE_FILE"; exit 1; }
+[[ -f "$SOURCE_MAN" ]] || { error "Man page not found: $SOURCE_MAN"; exit 1; }
+
+if [[ -e "$TARGET_FILE" && "$AUTO_YES" != "true" ]]; then
+  [[ -t 0 ]] || { error "freeram is already installed; use --yes to reinstall non-interactively."; exit 2; }
+  read -r -p "freeram is already installed. Reinstall? [y/N]: " reply
+  [[ "$reply" =~ ^[Yy]$ ]] || { printf 'Cancelled\n'; exit 0; }
 fi
 
-# Install script
-echo "Installing freeram to $TARGET_FILE..."
-cp "$SOURCE_FILE" "$TARGET_FILE"
-chmod +x "$TARGET_FILE"
+printf 'freeram Installer\n=================\n'
+printf 'Installing binary and man page...\n'
 
-# Setup log file
-echo "Setting up log file..."
-touch "$LOG_FILE"
-chmod 644 "$LOG_FILE"
+mkdir -p "$TARGET_DIR" "$MAN_DIR" "$(dirname "$LOG_FILE")" "$HISTORY_DIR" || {
+  error "Failed to create installation directories."
+  exit 1
+}
 
-# Setup history directory
-echo "Setting up history directory..."
-mkdir -p "$HISTORY_DIR"
-chmod 755 "$HISTORY_DIR"
+cp "$SOURCE_FILE" "$TARGET_FILE" || { error "Failed to install $TARGET_FILE"; exit 1; }
+chmod 0755 "$TARGET_FILE" || { error "Failed to set executable permissions on $TARGET_FILE"; exit 1; }
 
-# Create symlink for convenience
-ln -sf "$TARGET_FILE" /usr/local/bin/freeram 2>/dev/null || true
+cp "$SOURCE_MAN" "$MAN_FILE" || { error "Failed to install $MAN_FILE"; exit 1; }
+chmod 0644 "$MAN_FILE" || { error "Failed to set permissions on $MAN_FILE"; exit 1; }
 
-echo ""
-echo "Installation complete!"
-echo ""
-echo "Usage:"
-echo "  sudo freeram           # Interactive mode"
-echo "  sudo freeram -y        # Auto-confirm"
-echo "  sudo freeram -s        # Silent mode"
-echo "  sudo freeram --stats   # Show statistics"
-echo ""
-echo "Log file: $LOG_FILE"
+touch "$LOG_FILE" || { error "Failed to create $LOG_FILE"; exit 1; }
+chmod 0644 "$LOG_FILE" || { error "Failed to set permissions on $LOG_FILE"; exit 1; }
+chmod 0755 "$HISTORY_DIR" || { error "Failed to set permissions on $HISTORY_DIR"; exit 1; }
+
+printf '\nInstallation complete.\n'
+printf 'Binary: %s\n' "$TARGET_FILE"
+printf 'Man page: %s\n' "$MAN_FILE"
+printf 'Log: %s\n' "$LOG_FILE"
+printf '\nExamples:\n'
+printf '  sudo freeram\n'
+printf '  sudo freeram --yes\n'
+printf '  sudo freeram --yes --silent\n'
+printf '  freeram --test\n'
+printf '  freeram --stats\n'

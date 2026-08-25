@@ -1,14 +1,16 @@
 # freeram cron examples
-# Add to /etc/cron.d/ or user's crontab (crontab -e)
+# Cache cleaning requires root. Add these entries with: sudo crontab -e
+# Do not add them to an ordinary user's crontab unless that environment is
+# deliberately configured to run freeram with the required privileges.
 
 # Run every day at 2 AM (silent mode, auto-confirm)
-0 2 * * * /usr/local/bin/freeram -y -s
+0 2 * * * /usr/local/bin/freeram --yes --silent
 
-# Run every Sunday at 3 AM and show stats
-0 3 * * 0 /usr/local/bin/freeram -y && /usr/local/bin/freeram --stats
+# Run every Sunday at 3 AM, then record current stats in cron output
+0 3 * * 0 /usr/local/bin/freeram --yes && /usr/local/bin/freeram --stats
 
-# Run every 6 hours (for busy systems)
-0 */6 * * * /usr/local/bin/freeram -y -s
+# Example for a deliberately chosen higher-frequency schedule
+0 */6 * * * /usr/local/bin/freeram --yes --silent
 
-# Run on system boot (if root)
-@reboot /usr/local/bin/freeram -y -s
+# Run on system boot
+@reboot /usr/local/bin/freeram --yes --silent
