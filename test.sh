@@ -81,5 +81,23 @@ else
   cat "$TMP_DIR/err" >&2
 fi
 
+# Installer/uninstaller behavior is tested under a temporary filesystem root so
+# the suite never modifies /usr or /var on the CI runner.
+INSTALL_ROOT="$TMP_DIR/install-root"
+assert_failure_contains "Installer requires root" "root privileges" env FREERAM_EUID=1000 FREERAM_INSTALL_ROOT="$INSTALL_ROOT" "$SCRIPT_DIR/install.sh" --yes
+assert_success "Installer supports isolated root" env FREERAM_EUID=0 FREERAM_INSTALL_ROOT="$INSTALL_ROOT" "$SCRIPT_DIR/install.sh" --yes
+if [[ -x "$INSTALL_ROOT/usr/local/bin/freeram" && -f "$INSTALL_ROOT/usr/local/share/man/man1/freeram.1" && -f "$INSTALL_ROOT/var/log/freeram.log" && -d "$INSTALL_ROOT/var/lib/freeram" ]]; then
+  pass "Installer creates binary, man page, log, and history directory"
+else
+  fail "Installer creates binary, man page, log, and history directory"
+fi
+assert_failure_contains "Uninstaller requires root" "root privileges" env FREERAM_EUID=1000 FREERAM_INSTALL_ROOT="$INSTALL_ROOT" "$SCRIPT_DIR/uninstall.sh" --yes --purge
+assert_success "Uninstaller supports non-interactive purge" env FREERAM_EUID=0 FREERAM_INSTALL_ROOT="$INSTALL_ROOT" "$SCRIPT_DIR/uninstall.sh" --yes --purge
+if [[ ! -e "$INSTALL_ROOT/usr/local/bin/freeram" && ! -e "$INSTALL_ROOT/usr/local/share/man/man1/freeram.1" && ! -e "$INSTALL_ROOT/var/log/freeram.log" && ! -e "$INSTALL_ROOT/var/lib/freeram" ]]; then
+  pass "Uninstaller purge removes installed files and data"
+else
+  fail "Uninstaller purge removes installed files and data"
+fi
+
 printf '\nResults: %d passed, %d failed\n' "$PASS" "$FAIL"
 (( FAIL == 0 ))
